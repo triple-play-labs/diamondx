@@ -145,6 +145,63 @@ public class EventSchedulerTests
         Assert.That(events[1].Timestamp, Is.EqualTo(TimeSpan.FromMinutes(10)));
     }
 
+    [Test]
+    public void Game_EmitsExpectedEvents()
+    {
+        // Arrange a game that will have predictable outcomes
+        var random = new TestRandomSource(new Queue<double>(Enumerable.Repeat(0.99, 200)));
+
+        var homeTeam = CreateTestTeam("Home");
+        var awayTeam = CreateTestTeam("Away");
+        var game = new DiamondX.Core.Game(homeTeam, awayTeam, null, null,
+            new DiamondX.Core.Simulation.PlateAppearanceResolver(random));
+
+        // Act
+        game.PlayGame();
+
+        // Assert - verify key events were emitted
+        var events = game.Events.EventLog.ToList();
+
+        Assert.That(events.Any(e => e.EventType == BaseballEventTypes.GameStarted), Is.True);
+        Assert.That(events.Any(e => e.EventType == BaseballEventTypes.InningStarted), Is.True);
+        Assert.That(events.Any(e => e.EventType == BaseballEventTypes.AtBatStarted), Is.True);
+        Assert.That(events.Any(e => e.EventType == BaseballEventTypes.AtBatCompleted), Is.True);
+        Assert.That(events.Any(e => e.EventType == BaseballEventTypes.OutRecorded), Is.True);
+        Assert.That(events.Any(e => e.EventType == BaseballEventTypes.InningEnded), Is.True);
+        Assert.That(events.Any(e => e.EventType == BaseballEventTypes.GameEnded), Is.True);
+    }
+
+    [Test]
+    public void Game_EventsAreInOrder()
+    {
+        var random = new TestRandomSource(new Queue<double>(Enumerable.Repeat(0.99, 200)));
+        var homeTeam = CreateTestTeam("Home");
+        var awayTeam = CreateTestTeam("Away");
+        var game = new DiamondX.Core.Game(homeTeam, awayTeam, null, null,
+            new DiamondX.Core.Simulation.PlateAppearanceResolver(random));
+
+        game.PlayGame();
+
+        var events = game.Events.EventLog.ToList();
+
+        // Verify sequence numbers are strictly increasing
+        for (int i = 1; i < events.Count; i++)
+        {
+            Assert.That(events[i].Sequence, Is.GreaterThan(events[i - 1].Sequence));
+        }
+
+        // Verify first event is GameStarted and last is GameEnded
+        Assert.That(events[0].EventType, Is.EqualTo(BaseballEventTypes.GameStarted));
+        Assert.That(events[^1].EventType, Is.EqualTo(BaseballEventTypes.GameEnded));
+    }
+
+    private static List<DiamondX.Core.Models.Player> CreateTestTeam(string prefix)
+    {
+        return Enumerable.Range(1, 9)
+            .Select(i => new DiamondX.Core.Models.Player($"{prefix}{i}", 0.080, 0.170, 0.050, 0.005, 0.030))
+            .ToList();
+    }
+
     private sealed class TestHandler : IEventHandler
     {
         private readonly IEnumerable<string>? _eventTypeFilter;
