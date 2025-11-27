@@ -1,6 +1,11 @@
 // Game.cs
 using System.Runtime.CompilerServices;
+using DiamondX.Core.Events;
+using DiamondX.Core.Events.Baseball;
 using DiamondX.Core.Models;
+using DiamondX.Core.Random;
+using DiamondX.Core.Simulation;
+using DiamondX.Core.State;
 
 [assembly: InternalsVisibleTo("DiamondX.Tests")]
 
@@ -10,68 +15,132 @@ public class Game
 {
     private readonly List<Player> _homeTeam;
     private readonly List<Player> _awayTeam;
-    private int _homeScore;
-    private int _awayScore;
-    private int _inning;
-    private int _outs;
+    private readonly GameState _state = new();
+    private readonly IPlateAppearanceResolver _plateAppearanceResolver;
+    private readonly EventScheduler _eventScheduler;
+
     private int _homeBatterIndex;
     private int _awayBatterIndex;
-    private readonly Random _random = new();
 
-    internal readonly Player?[] _bases = new Player?[3];
+    private Pitcher? _homePitcher;
+    private Pitcher? _awayPitcher;
 
-    public Game(List<Player> homeTeam, List<Player> awayTeam)
+    internal GameState State => _state;
+
+    /// <summary>
+    /// Access to the event scheduler for registering handlers or querying events.
+    /// </summary>
+    public EventScheduler Events => _eventScheduler;
+
+    public Game(List<Player> homeTeam, List<Player> awayTeam, IPlateAppearanceResolver? plateAppearanceResolver = null)
+        : this(homeTeam, awayTeam, null, null, plateAppearanceResolver, null)
     {
-        _homeTeam = homeTeam;
-        _awayTeam = awayTeam;
-        Console.WriteLine("--- Game Start ---");
     }
 
-    private AtBatOutcome SimulateAtBat(Player player)
+    public Game(
+        List<Player> homeTeam,
+        List<Player> awayTeam,
+        Pitcher? homePitcher,
+        Pitcher? awayPitcher,
+        IPlateAppearanceResolver? plateAppearanceResolver = null)
+        : this(homeTeam, awayTeam, homePitcher, awayPitcher, plateAppearanceResolver, null)
     {
-        Console.WriteLine($"At bat: {player.Name}");
-        double roll = _random.NextDouble();
+    }
 
-        // We check outcomes in a cascading manner.
-        // The order doesn't strictly matter, but it's logical to check from lowest to highest probability.
-        if (roll < player.WalkRate) return AtBatOutcome.Walk;
-        roll -= player.WalkRate;
+    public Game(
+        List<Player> homeTeam,
+        List<Player> awayTeam,
+        Pitcher? homePitcher,
+        Pitcher? awayPitcher,
+        IPlateAppearanceResolver? plateAppearanceResolver,
+        EventScheduler? eventScheduler)
+    {
+        _homeTeam = homeTeam ?? throw new ArgumentNullException(nameof(homeTeam));
+        _awayTeam = awayTeam ?? throw new ArgumentNullException(nameof(awayTeam));
 
-        if (roll < player.SingleRate) return AtBatOutcome.Single;
-        roll -= player.SingleRate;
+        if (_homeTeam.Count == 0)
+        {
+            throw new ArgumentException("Home team must have at least one player.", nameof(homeTeam));
+        }
 
-        if (roll < player.DoubleRate) return AtBatOutcome.Double;
-        roll -= player.DoubleRate;
+        if (_awayTeam.Count == 0)
+        {
+            throw new ArgumentException("Away team must have at least one player.", nameof(awayTeam));
+        }
 
-        if (roll < player.TripleRate) return AtBatOutcome.Triple;
-        roll -= player.TripleRate;
+        _homePitcher = homePitcher;
+        _awayPitcher = awayPitcher;
+        _plateAppearanceResolver = plateAppearanceResolver ?? new PlateAppearanceResolver(new SystemRandomSource());
+        _eventScheduler = eventScheduler ?? new EventScheduler();
+    }
 
-        if (roll < player.HomeRunRate) return AtBatOutcome.HomeRun;
+    /// <summary>
+    /// Set or replace the current pitcher for a team mid-game.
+    /// </summary>
+    public void SetPitcher(Pitcher pitcher, bool isHomeTeam)
+    {
+        var previous = isHomeTeam ? _homePitcher : _awayPitcher;
 
-        return AtBatOutcome.Out; // If no other outcome was hit, it's an out.
+        if (isHomeTeam)
+        {
+            _homePitcher = pitcher;
+        }
+        else
+        {
+            _awayPitcher = pitcher;
+        }
+
+        _eventScheduler.Publish(new PitcherChangedEvent
+        {
+            NewPitcher = pitcher,
+            PreviousPitcher = previous,
+            IsHomeTeam = isHomeTeam,
+            Inning = _state.Inning,
+            Half = _state.Half
+        });
+    }
+
+    private AtBatOutcome SimulateAtBat(Player batter, bool isHomeTeamBatting)
+    {
+        // When home team bats, away pitcher is on the mound (and vice versa)
+        Pitcher? pitcher = isHomeTeamBatting ? _awayPitcher : _homePitcher;
+
+        _eventScheduler.Publish(new AtBatStartedEvent
+        {
+            Batter = batter,
+            Pitcher = pitcher,
+            Inning = _state.Inning,
+            Half = _state.Half,
+            Outs = _state.Outs
+        });
+
+        AtBatOutcome outcome;
+        if (pitcher != null)
+        {
+            outcome = _plateAppearanceResolver.Resolve(batter, pitcher);
+        }
+        else
+        {
+            outcome = _plateAppearanceResolver.Resolve(batter);
+        }
+
+        _eventScheduler.Publish(new AtBatCompletedEvent
+        {
+            Batter = batter,
+            Pitcher = pitcher,
+            Outcome = outcome,
+            Inning = _state.Inning,
+            Half = _state.Half
+        });
+
+        return outcome;
     }
 
     internal void AdvanceRunners(AtBatOutcome outcome, Player batter, bool isHomeTeam)
     {
         if (outcome == AtBatOutcome.Walk)
         {
-            // Handle walk: advance runners only if forced
-            if (_bases[0] != null && _bases[1] != null && _bases[2] != null) { // Bases loaded
-                if (isHomeTeam) _homeScore++; else _awayScore++;
-                Console.WriteLine($"{_bases[2]?.Name} scores!");
-                _bases[2] = _bases[1];
-                _bases[1] = _bases[0];
-                _bases[0] = batter;
-            } else if (_bases[0] != null && _bases[1] != null) { // 1st and 2nd occupied
-                _bases[2] = _bases[1];
-                _bases[1] = _bases[0];
-                _bases[0] = batter;
-            } else if (_bases[0] != null) { // 1st occupied
-                _bases[1] = _bases[0];
-                _bases[0] = batter;
-            } else { // Bases empty or only runners on 2nd/3rd
-                _bases[0] = batter;
-            }
+            HandleWalk(batter, isHomeTeam, outcome);
             return;
         }
 
@@ -84,120 +153,213 @@ public class Game
             _ => 0
         };
 
-        if (basesToAdvance == 0) return;
-
-        // Move runners on base
-        for (int i = 2; i >= 0; i--)
+        if (basesToAdvance == 0)
         {
-            if (_bases[i] != null)
-            {
-                int newBaseIndex = i + basesToAdvance;
-                if (newBaseIndex >= 3)
-                {
-                    if (isHomeTeam) _homeScore++; else _awayScore++;
-                    Console.WriteLine($"{_bases[i]?.Name} scores!");
-                    _bases[i] = null;
-                }
-                else
-                {
-                    _bases[newBaseIndex] = _bases[i];
-                    _bases[i] = null;
-                }
-            }
+            return;
         }
 
-        // Place batter
+        MoveExistingRunners(basesToAdvance, isHomeTeam, outcome, batter);
+
         if (basesToAdvance < 4)
         {
-            _bases[basesToAdvance - 1] = batter;
+            _state.SetBase(basesToAdvance - 1, batter);
+            _eventScheduler.Publish(new RunnerAdvancedEvent
+            {
+                Runner = batter,
+                FromBase = 0,
+                ToBase = basesToAdvance,
+                Cause = outcome
+            });
         }
-        else // Home Run
+        else
         {
-            if (isHomeTeam) _homeScore++; else _awayScore++;
-            Console.WriteLine($"{batter.Name} hits a home run! A run scores!");
+            // Home run - batter scores
+            _state.AddRun(isHomeTeam);
+            _eventScheduler.Publish(new RunScoredEvent
+            {
+                Runner = batter,
+                Batter = batter,
+                IsHomeTeam = isHomeTeam,
+                NewScore = isHomeTeam ? _state.HomeScore : _state.AwayScore,
+                ScoringPlay = outcome
+            });
         }
     }
 
-
-    private void PlayHalfInning(List<Player> team, bool isHomeTeam)
+    private void HandleWalk(Player batter, bool isHomeTeam, AtBatOutcome outcome)
     {
-        _outs = 0;
-        Array.Clear(_bases, 0, _bases.Length); // Clear bases at the start of the inning
-        // Use a reference to the correct batter index for the current team
-        ref int batterIndex = ref isHomeTeam ? ref _homeBatterIndex : ref _awayBatterIndex;
+        var first = _state.GetBase(0);
+        var second = _state.GetBase(1);
+        var third = _state.GetBase(2);
 
-        while (_outs < 3)
+        if (first != null && second != null && third != null)
         {
-            PrintBases(); // Show the state of the bases
-            Player currentBatter = team[batterIndex];
-            AtBatOutcome outcome = SimulateAtBat(currentBatter);
+            _state.AddRun(isHomeTeam);
+            _eventScheduler.Publish(new RunScoredEvent
+            {
+                Runner = third,
+                Batter = batter,
+                IsHomeTeam = isHomeTeam,
+                NewScore = isHomeTeam ? _state.HomeScore : _state.AwayScore,
+                ScoringPlay = outcome
+            });
+            third = second;
+            second = first;
+            first = batter;
+        }
+        else if (first != null && second != null)
+        {
+            _eventScheduler.Publish(new RunnerAdvancedEvent { Runner = second, FromBase = 2, ToBase = 3, Cause = outcome });
+            third = second;
+            _eventScheduler.Publish(new RunnerAdvancedEvent { Runner = first, FromBase = 1, ToBase = 2, Cause = outcome });
+            second = first;
+            first = batter;
+        }
+        else if (first != null)
+        {
+            _eventScheduler.Publish(new RunnerAdvancedEvent { Runner = first, FromBase = 1, ToBase = 2, Cause = outcome });
+            second = first;
+            first = batter;
+        }
+        else
+        {
+            first = batter;
+        }
 
-            // Handle the outcome
+        _state.SetBase(0, first);
+        _state.SetBase(1, second);
+        _state.SetBase(2, third);
+    }
+
+    private void MoveExistingRunners(int basesToAdvance, bool isHomeTeam, AtBatOutcome outcome, Player batter)
+    {
+        // Runners on base typically advance more aggressively than the batter
+        // On a single: runners advance 2 bases (runner on 2nd scores)
+        // On doubles/triples/HR: all runners score
+        int runnerAdvance = basesToAdvance == 1 ? 2 : basesToAdvance;
+
+        for (int baseIndex = 2; baseIndex >= 0; baseIndex--)
+        {
+            var runner = _state.GetBase(baseIndex);
+            if (runner == null)
+            {
+                continue;
+            }
+
+            _state.SetBase(baseIndex, null);
+
+            int destination = baseIndex + runnerAdvance;
+            if (destination >= 3)
+            {
+                _state.AddRun(isHomeTeam);
+                _eventScheduler.Publish(new RunScoredEvent
+                {
+                    Runner = runner,
+                    Batter = batter,
+                    IsHomeTeam = isHomeTeam,
+                    NewScore = isHomeTeam ? _state.HomeScore : _state.AwayScore,
+                    ScoringPlay = outcome
+                });
+            }
+            else
+            {
+                _state.SetBase(destination, runner);
+                _eventScheduler.Publish(new RunnerAdvancedEvent
+                {
+                    Runner = runner,
+                    FromBase = baseIndex + 1,
+                    ToBase = destination + 1,
+                    Cause = outcome
+                });
+            }
+        }
+    }
+
+    private void PlayHalfInning(List<Player> battingTeam, bool isHomeTeam)
+    {
+        int batterIndex = isHomeTeam ? _homeBatterIndex : _awayBatterIndex;
+        int runsThisInning = isHomeTeam ? _state.HomeScore : _state.AwayScore;
+
+        _eventScheduler.Publish(new InningStartedEvent
+        {
+            Inning = _state.Inning,
+            Half = _state.Half,
+            HomeScore = _state.HomeScore,
+            AwayScore = _state.AwayScore
+        });
+
+        while (_state.Outs < 3)
+        {
+            Player currentBatter = battingTeam[batterIndex];
+            AtBatOutcome outcome = SimulateAtBat(currentBatter, isHomeTeam);
+
             switch (outcome)
             {
                 case AtBatOutcome.Out:
-                    Console.WriteLine("Result: OUT!");
-                    _outs++;
-                    break;
-                case AtBatOutcome.Walk:
-                    Console.WriteLine("Result: WALK!");
-                    AdvanceRunners(outcome, currentBatter, isHomeTeam);
+                    _state.RecordOut();
+                    _eventScheduler.Publish(new OutRecordedEvent
+                    {
+                        Batter = currentBatter,
+                        OutNumber = _state.Outs,
+                        Inning = _state.Inning,
+                        Half = _state.Half
+                    });
                     break;
                 default:
-                    Console.WriteLine($"Result: {outcome.ToString().ToUpper()}!");
                     AdvanceRunners(outcome, currentBatter, isHomeTeam);
                     break;
             }
 
-            batterIndex = (batterIndex + 1) % team.Count; // Move to the next batter
+            batterIndex = (batterIndex + 1) % battingTeam.Count;
         }
-        Console.WriteLine(new string('-', 20));
-    }
 
-    private void PrintBases()
-    {
-        // Simple console representation of the bases.
-        Console.WriteLine($"Bases: [1B: {_bases[0]?.Name ?? "___"}] [2B: {_bases[1]?.Name ?? "___"}] [3B: {_bases[2]?.Name ?? "___"}]");
+        int runsScored = (isHomeTeam ? _state.HomeScore : _state.AwayScore) - runsThisInning;
+        _eventScheduler.Publish(new InningEndedEvent
+        {
+            Inning = _state.Inning,
+            Half = _state.Half,
+            RunsScored = runsScored
+        });
+
+        if (isHomeTeam)
+        {
+            _homeBatterIndex = batterIndex;
+        }
+        else
+        {
+            _awayBatterIndex = batterIndex;
+        }
     }
 
     public void PlayGame()
     {
-        for (_inning = 1; _inning <= 9; _inning++)
+        _eventScheduler.Publish(new GameStartedEvent
         {
-            // Away team bats
-            Console.WriteLine($"\nTop of Inning {_inning} | Score: Away {_awayScore} - Home {_homeScore}");
+            HomeTeamName = "Home",
+            AwayTeamName = "Away",
+            HomePitcher = _homePitcher,
+            AwayPitcher = _awayPitcher
+        });
+
+        for (int inning = 1; inning <= 9; inning++)
+        {
+            _state.BeginHalfInning(inning, HalfInning.Top);
             PlayHalfInning(_awayTeam, isHomeTeam: false);
 
-            // Home team bats, but only if they are not winning in the bottom of the 9th
-            if (_inning == 9 && _homeScore > _awayScore)
+            if (inning == 9 && _state.HomeScore > _state.AwayScore)
             {
-                break; // Walk-off win, no need for home team to bat.
+                break;
             }
 
-            Console.WriteLine($"Bottom of Inning {_inning} | Score: Away {_awayScore} - Home {_homeScore}");
+            _state.BeginHalfInning(inning, HalfInning.Bottom);
             PlayHalfInning(_homeTeam, isHomeTeam: true);
         }
 
-        PrintFinalScore();
-    }
-
-
-
-    private void PrintFinalScore()
-    {
-        Console.WriteLine("\n--- Game Over ---");
-        Console.WriteLine($"Final Score: Away {_awayScore} - Home {_homeScore}");
-        if (_homeScore > _awayScore)
+        _eventScheduler.Publish(new GameEndedEvent
         {
-            Console.WriteLine("Home Team Wins!");
-        }
-        else if (_awayScore > _homeScore)
-        {
-            Console.WriteLine("Away Team Wins!");
-        }
-        else
-        {
-            Console.WriteLine("It's a tie!"); // We'll handle extra innings later.
-        }
+            HomeScore = _state.HomeScore,
+            AwayScore = _state.AwayScore,
+            Innings = _state.Inning
+        });
     }
 }

@@ -1,7 +1,12 @@
 // Program.cs
 
 using DiamondX.Core;
+using DiamondX.Core.Events;
+using DiamondX.Core.Events.Handlers;
 using DiamondX.Core.Models;
+
+// Check for debug flag
+var debugMode = args.Contains("--debug") || args.Contains("-d");
 
 // Approximate 2023 stats per plate appearance.
 // Format: new Player(Name, Walk%, Single%, Double%, Triple%, HomeRun%)
@@ -36,4 +41,15 @@ var dodgersLineup = new List<Player>
 
 // Create and play the game
 var simGame = new Game(homeTeam: giantsLineup, awayTeam: dodgersLineup);
+
+// Register console output handler
+simGame.Events.RegisterHandler(new ConsoleEventHandler());
+
+// Enable debug mode if requested
+if (debugMode)
+{
+    simGame.Events.DebugMode = true;
+    Console.Error.WriteLine("[DEBUG] Debug mode enabled - showing event scheduler traffic");
+}
+
 simGame.PlayGame();
