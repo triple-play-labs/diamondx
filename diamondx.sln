@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "diamondx", "diamondx.csproj", "{628F2BA1-A6A9-6B20-3215-A0077BE852FD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiamondX.Tests", "DiamondX.Tests/DiamondX.Tests.csproj", "{B2A3C7D0-E8A9-4C5E-8F24-B2B85E4C2B2A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{628F2BA1-A6A9-6B20-3215-A0077BE852FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{628F2BA1-A6A9-6B20-3215-A0077BE852FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{628F2BA1-A6A9-6B20-3215-A0077BE852FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{628F2BA1-A6A9-6B20-3215-A0077BE852FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2A3C7D0-E8A9-4C5E-8F24-B2B85E4C2B2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2A3C7D0-E8A9-4C5E-8F24-B2B85E4C2B2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2A3C7D0-E8A9-4C5E-8F24-B2B85E4C2B2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2A3C7D0-E8A9-4C5E-8F24-B2B85E4C2B2A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {35BC0A34-BC2B-42A4-ACFF-2171C5574291}
+	EndGlobalSection
+EndGlobal
