@@ -49,6 +49,10 @@ else
     echo -e "${YELLOW}! Docker not found (optional)${NC}"
 fi
 
+# Install Git hooks
+echo -e "\n${YELLOW}Installing Git hooks...${NC}"
+"$SCRIPT_DIR/install-hooks.sh"
+
 # Restore NuGet packages
 echo -e "\n${YELLOW}Restoring NuGet packages...${NC}"
 cd "$SOLUTION_DIR/src"
