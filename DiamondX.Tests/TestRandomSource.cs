@@ -1,4 +1,4 @@
-using DiamondX.Core.Random;
+using SimulationEngine.Random;
 
 namespace DiamondX.Tests;
 

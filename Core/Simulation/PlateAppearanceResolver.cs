@@ -1,6 +1,6 @@
 using System;
 using DiamondX.Core.Models;
-using DiamondX.Core.Random;
+using SimulationEngine.Random;
 
 namespace DiamondX.Core.Simulation;
 

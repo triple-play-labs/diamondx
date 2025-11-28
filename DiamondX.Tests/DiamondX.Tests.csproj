@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../diamondx.csproj" />
+    <ProjectReference Include="..\SimulationEngine\SimulationEngine.csproj" />
   </ItemGroup>
 
 </Project>

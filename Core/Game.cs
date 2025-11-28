@@ -2,9 +2,9 @@
 using System;
 using System.Runtime.CompilerServices;
 using DiamondX.Core.Models;
-using DiamondX.Core.Random;
 using DiamondX.Core.Simulation;
 using DiamondX.Core.State;
+using SimulationEngine.Random;
 
 [assembly: InternalsVisibleTo("DiamondX.Tests")]
 

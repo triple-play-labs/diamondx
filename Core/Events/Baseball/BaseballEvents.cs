@@ -1,5 +1,6 @@
 using DiamondX.Core.Models;
 using DiamondX.Core.State;
+using SimulationEngine.Events;
 
 namespace DiamondX.Core.Events.Baseball;
 

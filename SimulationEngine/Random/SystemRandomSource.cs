@@ -1,7 +1,8 @@
-using System;
+namespace SimulationEngine.Random;
 
-namespace DiamondX.Core.Random;
-
+/// <summary>
+/// Default random source using System.Random.
+/// </summary>
 public sealed class SystemRandomSource : IRandomSource
 {
     private readonly System.Random _random;
@@ -13,6 +14,10 @@ public sealed class SystemRandomSource : IRandomSource
     public SystemRandomSource(System.Random random)
     {
         _random = random ?? throw new ArgumentNullException(nameof(random));
+    }
+
+    public SystemRandomSource(int seed) : this(new System.Random(seed))
+    {
     }
 
     public double NextDouble() => _random.NextDouble();

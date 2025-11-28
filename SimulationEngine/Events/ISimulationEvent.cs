@@ -1,4 +1,4 @@
-namespace DiamondX.Core.Events;
+namespace SimulationEngine.Events;
 
 /// <summary>
 /// Base interface for all simulation events.

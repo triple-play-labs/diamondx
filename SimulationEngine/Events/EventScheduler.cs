@@ -1,9 +1,9 @@
-namespace DiamondX.Core.Events;
+namespace SimulationEngine.Events;
 
 /// <summary>
 /// Central event scheduler for the simulation engine.
 /// Queues events, assigns sequence numbers, and dispatches to handlers.
-/// Designed to be domain-agnostic - baseball logic lives in event types and handlers.
+/// Designed to be domain-agnostic - domain logic lives in event types and handlers.
 /// </summary>
 public class EventScheduler
 {
