@@ -1,7 +1,63 @@
 // Program.cs
 
+using System.Diagnostics;
 using DiamondX.Core;
 using DiamondX.Core.Models;
+using DiamondX.Core.Simulation;
+using SimulationEngine.Core;
+using SimulationEngine.Events;
+using SimulationEngine.Random;
+using SimulationEngine.State;
+using SimulationEngine.Time;
+
+// Suppress SonarQube string literal warning for console output
+#pragma warning disable S1192
+
+// Check command line args for simulation mode
+bool runMonteCarlo = args.Contains("--monte-carlo") || args.Contains("-mc");
+int numSimulations = 10000;
+
+// Parse number of simulations - support presets and custom counts
+if (args.Contains("--single") || args.Contains("-1"))
+    numSimulations = 1;
+else if (args.Contains("--season") || args.Contains("-162"))
+    numSimulations = 162;
+else if (args.Contains("--full") || args.Contains("-10k"))
+    numSimulations = 10000;
+
+// Parse custom count if provided (overrides presets)
+var simCountArg = args.FirstOrDefault(a => a.StartsWith("--count=") || a.StartsWith("-n="));
+if (simCountArg != null)
+{
+    var countStr = simCountArg.Split('=')[1];
+    if (int.TryParse(countStr, out int count))
+        numSimulations = count;
+}
+
+// Show help if requested
+if (args.Contains("--help") || args.Contains("-h"))
+{
+    Console.WriteLine("DiamondX Baseball Simulator");
+    Console.WriteLine();
+    Console.WriteLine("Usage: dotnet run [options]");
+    Console.WriteLine();
+    Console.WriteLine("Options:");
+    Console.WriteLine("  (no args)        Run a single verbose game");
+    Console.WriteLine("  -mc, --monte-carlo  Run Monte Carlo simulations");
+    Console.WriteLine();
+    Console.WriteLine("Simulation count (with -mc):");
+    Console.WriteLine("  -1, --single     Run 1 simulation");
+    Console.WriteLine("  -162, --season   Run 162 simulations (one season)");
+    Console.WriteLine("  -10k, --full     Run 10,000 simulations (default)");
+    Console.WriteLine("  -n=N, --count=N  Run N simulations");
+    Console.WriteLine();
+    Console.WriteLine("Examples:");
+    Console.WriteLine("  dotnet run                    # Single verbose game");
+    Console.WriteLine("  dotnet run -mc -1             # One silent simulation");
+    Console.WriteLine("  dotnet run -mc --season       # 162-game season sim");
+    Console.WriteLine("  dotnet run -mc -n=50000       # 50,000 simulations");
+    return;
+}
 
 // Approximate 2023 stats per plate appearance.
 // Format: new Player(Name, Walk%, Single%, Double%, Triple%, HomeRun%)
@@ -63,12 +119,167 @@ var dodgersPitcher = new Pitcher(
     maxPitchCount: 100
 );
 
-// Create and play the game
-var simGame = new Game(
-    homeTeam: giantsLineup,
-    awayTeam: dodgersLineup,
-    homeTeamName: "Giants",
-    awayTeamName: "Dodgers",
-    homePitcher: giantsPitcher,
-    awayPitcher: dodgersPitcher);
-simGame.PlayGame();
+if (runMonteCarlo)
+{
+    RunMonteCarloSimulation(
+        giantsLineup, dodgersLineup,
+        giantsPitcher, dodgersPitcher,
+        numSimulations);
+}
+else
+{
+    // Create and play a single game with verbose output
+    var simGame = new Game(
+        homeTeam: giantsLineup,
+        awayTeam: dodgersLineup,
+        homeTeamName: "Giants",
+        awayTeamName: "Dodgers",
+        homePitcher: giantsPitcher,
+        awayPitcher: dodgersPitcher);
+    simGame.PlayGame();
+}
+
+/// <summary>
+/// Runs Monte Carlo simulations using the SimulationEngine to compute win probabilities.
+/// </summary>
+static void RunMonteCarloSimulation(
+    List<Player> homeTeam,
+    List<Player> awayTeam,
+    Pitcher homePitcher,
+    Pitcher awayPitcher,
+    int numSimulations)
+{
+    Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
+    Console.WriteLine("║       ⚾ DiamondX Monte Carlo Win Probability Calculator ⚾    ║");
+    Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
+    Console.WriteLine();
+    Console.WriteLine($"  Matchup: Dodgers @ Giants");
+    Console.WriteLine($"  Pitchers: {awayPitcher.Name} vs {homePitcher.Name}");
+    Console.WriteLine($"  Simulations: {numSimulations:N0}");
+    Console.WriteLine();
+
+    var config = new GameConfig
+    {
+        HomeTeam = homeTeam,
+        AwayTeam = awayTeam,
+        HomeTeamName = "Giants",
+        AwayTeamName = "Dodgers",
+        HomePitcher = homePitcher,
+        AwayPitcher = awayPitcher
+    };
+
+    // Set up parameters for silent mode
+    var parameters = new SimulationParameters();
+    parameters.Set("verbose", false);
+
+    var stopwatch = Stopwatch.StartNew();
+
+    // Collect results - we run simulations directly to capture game state
+    Console.WriteLine("  Running simulations...");
+    var baseSeed = new Random(42);
+    var seeds = Enumerable.Range(0, numSimulations).Select(_ => baseSeed.Next()).ToArray();
+
+    // Result accumulators
+    var homeWins = 0;
+    var awayWins = 0;
+    var totalHomeRuns = 0;
+    var totalAwayRuns = 0;
+    var extraInningGames = 0;
+    var homeScores = new List<int>(numSimulations);
+    var awayScores = new List<int>(numSimulations);
+    var totalInnings = new List<int>(numSimulations);
+    var lockObj = new object();
+
+    // Use raw Parallel.For to run simulations and capture state
+    Parallel.For(0, numSimulations, i =>
+    {
+        var simulation = new BaseballGameSimulation(config);
+
+        // Create a simple context to run the simulation
+        var random = new SeedableRandomSource(seeds[i]);
+        var clock = new SimulationClock();
+        var events = new EventScheduler();
+        var state = new InMemoryStateManager(() => (clock.TickCount, clock.CurrentTime));
+        var metrics = new SimulationMetrics(Guid.NewGuid());
+        var ctx = new SimulationContext(Guid.NewGuid(), random, clock, events, state, parameters, metrics);
+
+        simulation.Initialize(ctx);
+
+        // Run to completion
+        while (!simulation.IsComplete)
+        {
+            simulation.Step();
+            if (ctx.Clock.TickCount > 500) break; // Safety limit
+        }
+
+        // Capture results
+        var game = simulation.Game!;
+        var homeScore = game.HomeScore;
+        var awayScore = game.AwayScore;
+        var innings = game.CurrentInning;
+
+        lock (lockObj)
+        {
+            if (homeScore > awayScore)
+                homeWins++;
+            else
+                awayWins++;
+
+            totalHomeRuns += homeScore;
+            totalAwayRuns += awayScore;
+            homeScores.Add(homeScore);
+            awayScores.Add(awayScore);
+            totalInnings.Add(innings);
+
+            if (innings > 9)
+                extraInningGames++;
+        }
+    });
+
+    stopwatch.Stop();
+
+    // Calculate statistics
+    double homeWinPct = (double)homeWins / numSimulations * 100;
+    double awayWinPct = (double)awayWins / numSimulations * 100;
+    double avgHomeScore = (double)totalHomeRuns / numSimulations;
+    double avgAwayScore = (double)totalAwayRuns / numSimulations;
+    double avgInnings = totalInnings.Average();
+    double extraInningPct = (double)extraInningGames / numSimulations * 100;
+
+    // Sort for percentiles
+    homeScores.Sort();
+    awayScores.Sort();
+
+    int p10Home = homeScores[(int)(numSimulations * 0.10)];
+    int p50Home = homeScores[(int)(numSimulations * 0.50)];
+    int p90Home = homeScores[(int)(numSimulations * 0.90)];
+    int p10Away = awayScores[(int)(numSimulations * 0.10)];
+    int p50Away = awayScores[(int)(numSimulations * 0.50)];
+    int p90Away = awayScores[(int)(numSimulations * 0.90)];
+
+    // Display results
+    Console.WriteLine();
+    Console.WriteLine("┌────────────────────────────────────────────────────────────────┐");
+    Console.WriteLine("│                        SIMULATION RESULTS                       │");
+    Console.WriteLine("├────────────────────────────────────────────────────────────────┤");
+    Console.WriteLine($"│  Win Probability:                                              │");
+    Console.WriteLine($"│    Giants (Home): {homeWinPct,6:F2}%  ({homeWins:N0} wins)                       │");
+    Console.WriteLine($"│    Dodgers (Away): {awayWinPct,6:F2}%  ({awayWins:N0} wins)                       │");
+    Console.WriteLine("├────────────────────────────────────────────────────────────────┤");
+    Console.WriteLine($"│  Average Score:                                                │");
+    Console.WriteLine($"│    Giants: {avgHomeScore:F2} runs/game                                      │");
+    Console.WriteLine($"│    Dodgers: {avgAwayScore:F2} runs/game                                      │");
+    Console.WriteLine("├────────────────────────────────────────────────────────────────┤");
+    Console.WriteLine($"│  Score Distribution (10th / 50th / 90th percentile):           │");
+    Console.WriteLine($"│    Giants: {p10Home} / {p50Home} / {p90Home} runs                                       │");
+    Console.WriteLine($"│    Dodgers: {p10Away} / {p50Away} / {p90Away} runs                                       │");
+    Console.WriteLine("├────────────────────────────────────────────────────────────────┤");
+    Console.WriteLine($"│  Game Length:                                                  │");
+    Console.WriteLine($"│    Average innings: {avgInnings:F2}                                         │");
+    Console.WriteLine($"│    Extra inning games: {extraInningPct:F1}%                                     │");
+    Console.WriteLine("├────────────────────────────────────────────────────────────────┤");
+    Console.WriteLine($"│  Performance:                                                  │");
+    Console.WriteLine($"│    Time elapsed: {stopwatch.ElapsedMilliseconds:N0} ms                                         │");
+    Console.WriteLine($"│    Simulations/sec: {numSimulations / stopwatch.Elapsed.TotalSeconds:N0}                                  │");
+    Console.WriteLine("└────────────────────────────────────────────────────────────────┘");
+}

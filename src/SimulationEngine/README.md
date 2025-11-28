@@ -180,20 +180,52 @@ var results = runner.RunParallel(
 
 ## Integration with DiamondX
 
-DiamondX.Core implements `ISimulation` through its `Game` class (or a wrapper), allowing baseball games to be executed by the engine:
+DiamondX.Core implements `ISimulation` through `BaseballGameSimulation`, allowing baseball games to be executed by the engine:
 
 ```csharp
-// Baseball simulation using the engine
-var runner = new SimulationRunner();
-var results = runner.RunParallel(
-    () => new BaseballGameSimulation(homeTeam, awayTeam),
-    runCount: 10000,
-    baseSeed: 42
-);
+// Create game configuration
+var config = new GameConfig
+{
+    HomeTeam = giantsLineup,
+    AwayTeam = dodgersLineup,
+    HomeTeamName = "Giants",
+    AwayTeamName = "Dodgers",
+    HomePitcher = webbPitcher,
+    AwayPitcher = kershawPitcher
+};
 
-// Analyze win probability
-var homeWins = results.Count(r => r.FinalState.HomeScore > r.FinalState.AwayScore);
-var winProbability = homeWins / (double)results.Count;
+// Run Monte Carlo simulations
+var parameters = new SimulationParameters();
+parameters.Set("verbose", false);  // Silent mode for bulk runs
+
+var seeds = Enumerable.Range(0, 10000).Select(_ => rng.Next()).ToArray();
+
+Parallel.For(0, 10000, i =>
+{
+    var simulation = new BaseballGameSimulation(config);
+    var context = CreateContext(seeds[i], parameters);
+    
+    simulation.Initialize(context);
+    while (!simulation.IsComplete)
+        simulation.Step();
+    
+    // Capture results
+    var game = simulation.Game!;
+    var homeWon = game.HomeScore > game.AwayScore;
+});
+```
+
+**Command-line Monte Carlo:**
+
+```zsh
+# Run 10,000 simulations
+dotnet run --project DiamondX.Console -- -mc
+
+# Run 162 games (one season)  
+dotnet run --project DiamondX.Console -- -mc --season
+
+# Run single simulation
+dotnet run --project DiamondX.Console -- -mc -1
 ```
 
 ## Contributing

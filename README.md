@@ -24,6 +24,51 @@ dotnet build
 dotnet run --project DiamondX.Console
 ```
 
+## Monte Carlo Win Probability
+
+Run thousands of simulations to calculate win probabilities:
+
+```zsh
+# Run 10,000 simulations (default)
+dotnet run --project DiamondX.Console -- -mc
+
+# Run a single season (162 games)
+dotnet run --project DiamondX.Console -- -mc --season
+
+# Run a single simulation
+dotnet run --project DiamondX.Console -- -mc -1
+
+# Custom count
+dotnet run --project DiamondX.Console -- -mc -n=50000
+```
+
+**Sample Output:**
+
+```text
+╔════════════════════════════════════════════════════════════════╗
+║       ⚾ DiamondX Monte Carlo Win Probability Calculator ⚾    ║
+╚════════════════════════════════════════════════════════════════╝
+
+  Matchup: Dodgers @ Giants
+  Pitchers: Clayton Kershaw vs Logan Webb
+  Simulations: 10,000
+
+┌────────────────────────────────────────────────────────────────┐
+│                        SIMULATION RESULTS                       │
+├────────────────────────────────────────────────────────────────┤
+│  Win Probability:                                              │
+│    Giants (Home):  32.57%  (3,257 wins)                        │
+│    Dodgers (Away):  67.43%  (6,743 wins)                       │
+├────────────────────────────────────────────────────────────────┤
+│  Average Score:                                                │
+│    Giants: 5.26 runs/game                                      │
+│    Dodgers: 8.11 runs/game                                     │
+├────────────────────────────────────────────────────────────────┤
+│  Performance:                                                  │
+│    Simulations/sec: 61,427                                     │
+└────────────────────────────────────────────────────────────────┘
+```
+
 ## Sample Output
 
 ```text
