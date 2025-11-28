@@ -82,17 +82,17 @@ public class Game
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        _homeTeam = options.HomeTeam ?? throw new ArgumentNullException(nameof(options.HomeTeam));
-        _awayTeam = options.AwayTeam ?? throw new ArgumentNullException(nameof(options.AwayTeam));
+        _homeTeam = options.HomeTeam ?? throw new ArgumentNullException(nameof(options), "HomeTeam cannot be null");
+        _awayTeam = options.AwayTeam ?? throw new ArgumentNullException(nameof(options), "AwayTeam cannot be null");
         _homeTeamName = options.HomeTeamName;
         _awayTeamName = options.AwayTeamName;
         _verbose = options.Verbose;
 
         if (_homeTeam.Count == 0)
-            throw new ArgumentException("Home team must have at least one player.", nameof(options.HomeTeam));
+            throw new ArgumentException("Home team must have at least one player.", nameof(options));
 
         if (_awayTeam.Count == 0)
-            throw new ArgumentException("Away team must have at least one player.", nameof(options.AwayTeam));
+            throw new ArgumentException("Away team must have at least one player.", nameof(options));
 
         _homePitcher = options.HomePitcher ?? CreateDefaultPitcher($"{_homeTeamName} Starter");
         _awayPitcher = options.AwayPitcher ?? CreateDefaultPitcher($"{_awayTeamName} Starter");

@@ -14,31 +14,42 @@ using SimulationEngine.Time;
 
 // Suppress SonarQube string literal warning for console output
 #pragma warning disable S1192
+// Suppress cognitive complexity warning - this is a CLI entry point
+#pragma warning disable S3776
 
 // Check command line args for simulation mode
 bool runMonteCarlo = args.Contains("--monte-carlo") || args.Contains("-mc");
 bool runOrchestrated = args.Contains("--orchestrated") || args.Contains("-o");
-int numSimulations = 10000;
-
-// Parse number of simulations - support presets and custom counts
-if (args.Contains("--single") || args.Contains("-1"))
-    numSimulations = 1;
-else if (args.Contains("--season") || args.Contains("-162"))
-    numSimulations = 162;
-else if (args.Contains("--full") || args.Contains("-10k"))
-    numSimulations = 10000;
-
-// Parse custom count if provided (overrides presets)
-var simCountArg = args.FirstOrDefault(a => a.StartsWith("--count=") || a.StartsWith("-n="));
-if (simCountArg != null)
-{
-    var countStr = simCountArg.Split('=')[1];
-    if (int.TryParse(countStr, out int count))
-        numSimulations = count;
-}
+int numSimulations = ParseSimulationCount(args);
 
 // Show help if requested
 if (args.Contains("--help") || args.Contains("-h"))
+{
+    ShowHelp();
+    return;
+}
+
+static int ParseSimulationCount(string[] args)
+{
+    // Parse custom count first (overrides presets)
+    var simCountArg = args.FirstOrDefault(a => a.StartsWith("--count=") || a.StartsWith("-n="));
+    if (simCountArg != null)
+    {
+        var countStr = simCountArg.Split('=')[1];
+        if (int.TryParse(countStr, out int count))
+            return count;
+    }
+
+    // Parse presets
+    if (args.Contains("--single") || args.Contains("-1"))
+        return 1;
+    if (args.Contains("--season") || args.Contains("-162"))
+        return 162;
+
+    return 10000; // Default
+}
+
+static void ShowHelp()
 {
     Console.WriteLine("DiamondX Baseball Simulator");
     Console.WriteLine();
@@ -61,7 +72,6 @@ if (args.Contains("--help") || args.Contains("-h"))
     Console.WriteLine("  dotnet run -mc --season       # 162-game season sim");
     Console.WriteLine("  dotnet run -mc -n=50000       # 50,000 simulations");
     Console.WriteLine("  dotnet run -o                 # Weather + Baseball orchestrated");
-    return;
 }
 
 // Approximate 2023 stats per plate appearance.

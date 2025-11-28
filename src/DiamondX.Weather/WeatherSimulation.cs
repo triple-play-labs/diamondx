@@ -14,7 +14,6 @@ public sealed class WeatherSimulation : ISimulation
     private ISimulationContext? _context;
     private ISharedContext? _sharedContext;
     private WeatherConditions _current;
-    private int _stepCount;
     private bool _gameDelayed;
 
     public string Name => "Weather";
@@ -59,8 +58,6 @@ public sealed class WeatherSimulation : ISimulation
     {
         if (_context is null)
             throw new InvalidOperationException("Simulation not initialized.");
-
-        _stepCount++;
 
         // Evolve weather based on configuration
         EvolveWeather();

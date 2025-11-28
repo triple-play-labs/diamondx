@@ -6,6 +6,9 @@ using SimulationEngine.Random;
 using SimulationEngine.State;
 using SimulationEngine.Time;
 
+// Suppress cognitive complexity warning - orchestration logic is inherently complex
+#pragma warning disable S3776
+
 /// <summary>
 /// Coordinates multiple simulation models within a single run.
 /// Ensures deterministic execution order based on dependencies and priority.

@@ -270,7 +270,7 @@ public class OrchestratorTests
     /// <summary>
     /// Simple test simulation for orchestrator tests.
     /// </summary>
-    private class TestSimulation : ISimulation
+    private sealed class TestSimulation : ISimulation
     {
         private readonly int _stepsToComplete;
         private readonly bool _throwOnStep;
@@ -307,6 +307,9 @@ public class OrchestratorTests
             return IsComplete ? SimulationStepResult.Completed : SimulationStepResult.Continue;
         }
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+            // Nothing to dispose, but required by ISimulation
+        }
     }
 }
