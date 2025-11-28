@@ -9,7 +9,7 @@ This roadmap outlines the implementation of a mature, fully functional DevOps pi
 - **Technology Stack**: .NET 8, C#
 - **Testing Framework**: NUnit
 - **Architecture**: Multi-project solution with simulation engine, core domain, and weather models
-- **Repository**: https://github.com/triple-play-labs/diamondx
+- **Repository**: <https://github.com/triple-play-labs/diamondx>
 
 ---
 
