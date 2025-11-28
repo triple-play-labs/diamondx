@@ -37,7 +37,34 @@ fi
 echo "Running pre-commit checks..."
 echo ""
 
-# 1. Secrets Detection
+# 1. Large File Check (5MB limit)
+echo -n "📦 Checking file sizes... "
+MAX_SIZE=$((5 * 1024 * 1024))  # 5MB in bytes
+LARGE_FILES=""
+
+for file in $(git diff --cached --name-only --diff-filter=ACM); do
+    if [ -f "$file" ]; then
+        FILE_SIZE=$(wc -c < "$file" | tr -d ' ')
+        if [ "$FILE_SIZE" -gt "$MAX_SIZE" ]; then
+            SIZE_MB=$(echo "scale=2; $FILE_SIZE / 1024 / 1024" | bc)
+            LARGE_FILES="${LARGE_FILES}\n  - $file (${SIZE_MB}MB)"
+        fi
+    fi
+done
+
+if [ -n "$LARGE_FILES" ]; then
+    echo -e "${RED}FAILED${NC}"
+    echo ""
+    echo -e "${RED}❌ Files exceed 5MB size limit:${NC}"
+    echo -e "$LARGE_FILES"
+    echo ""
+    echo "Consider using Git LFS for large files, or add to .gitignore"
+    echo "To bypass: git commit --no-verify"
+    exit 1
+fi
+echo -e "${GREEN}OK${NC}"
+
+# 2. Secrets Detection
 echo -n "🔐 Checking for secrets... "
 
 # Get staged diff, excluding the hook script itself (it contains pattern strings)
@@ -72,7 +99,7 @@ if [ -n "$SECRETS_FOUND" ]; then
 fi
 echo -e "${GREEN}OK${NC}"
 
-# 2. Format Check
+# 3. Format Check
 echo -n "📝 Checking code formatting... "
 if ! dotnet format "$SOLUTION" --verify-no-changes --verbosity quiet 2>&1; then
     echo -e "${RED}FAILED${NC}"
@@ -83,7 +110,7 @@ if ! dotnet format "$SOLUTION" --verify-no-changes --verbosity quiet 2>&1; then
 fi
 echo -e "${GREEN}OK${NC}"
 
-# 3. Build Check
+# 4. Build Check
 echo -n "🔨 Building solution... "
 if ! dotnet build "$SOLUTION" --configuration Debug --verbosity quiet --nologo 2>&1; then
     echo -e "${RED}FAILED${NC}"
@@ -93,7 +120,7 @@ if ! dotnet build "$SOLUTION" --configuration Debug --verbosity quiet --nologo 2
 fi
 echo -e "${GREEN}OK${NC}"
 
-# 4. Optional Tests (set RUN_TESTS=1 or use --run-tests alias)
+# 5. Optional Tests (set RUN_TESTS=1 or use --run-tests alias)
 if [ "$RUN_TESTS" = "1" ]; then
     echo -n "🧪 Running tests... "
     if ! dotnet test "$SOLUTION" --configuration Debug --no-build --verbosity quiet --nologo 2>&1; then
@@ -114,6 +141,7 @@ chmod +x "$HOOKS_DIR/pre-commit"
 echo "✅ Pre-commit hook installed successfully!"
 echo ""
 echo "The hook will check:"
+echo "  📦 File size limit (max 5MB)"
 echo "  🔐 Secrets detection (API keys, passwords, etc.)"
 echo "  📝 Code formatting (dotnet format)"
 echo "  🔨 Build verification (dotnet build)"
