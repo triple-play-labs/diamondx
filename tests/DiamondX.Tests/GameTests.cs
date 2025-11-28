@@ -5,8 +5,8 @@ namespace DiamondX.Tests;
 
 public class GameTests
 {
-    private Player _batter;
-    private Game _game;
+    private Player _batter = null!;
+    private Game _game = null!;
 
     [SetUp]
     public void Setup()
