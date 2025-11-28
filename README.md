@@ -18,10 +18,10 @@ DiamondX is a text-based baseball simulation engine built with .NET 8. It models
 ## Quick Start
 
 ```zsh
-git clone https://github.com/JimCorrell/diamondx.git
-cd diamondx
+git clone https://github.com/triple-play-labs/diamondx.git
+cd diamondx/src
 dotnet build
-dotnet run
+dotnet run --project DiamondX.Console
 ```
 
 ## Sample Output
@@ -41,26 +41,45 @@ Final Score: Dodgers 3 - Giants 5 (11 innings)
 Giants Win!
 ```
 
+## Project Structure
+
+```text
+diamondx/
+├── src/
+│   ├── diamondx.sln            # Solution file
+│   ├── DiamondX.Console/       # Executable entry point
+│   ├── DiamondX.Core/          # Baseball domain library
+│   │   ├── Events/
+│   │   ├── Models/
+│   │   ├── Simulation/
+│   │   └── State/
+│   └── SimulationEngine/       # Generic simulation framework
+│       ├── Events/
+│       └── Random/
+└── tests/
+    └── DiamondX.Tests/         # NUnit tests
+```
+
 ## Architecture
 
-### Core Components
+### DiamondX.Core - Baseball Domain
 
-- `Core/Game.cs`: Orchestrates inning flow, manages pitchers, and coordinates game state
-- `Core/State/GameState.cs`: Single source of truth for outs, bases, inning, and scores
-- `Core/Simulation/PlateAppearanceResolver.cs`: Resolves outcomes using Log5 batter-pitcher matchups
-- `Core/Random/IRandomSource.cs`: Abstraction for randomness to enable deterministic tests
+- `Game.cs`: Orchestrates inning flow, manages pitchers, and coordinates game state
+- `State/GameState.cs`: Single source of truth for outs, bases, inning, and scores
+- `Simulation/PlateAppearanceResolver.cs`: Resolves outcomes using Log5 batter-pitcher matchups
+- `Models/Player.cs`: Batter with per-PA rates (walk, single, double, triple, HR)
+- `Models/Pitcher.cs`: Pitcher with allowed rates, pitch count, and fatigue tracking
+- `Models/AtBatOutcome.cs`: Outcome enum (Walk, Single, Double, Triple, HomeRun, Out)
+- `Events/Baseball/BaseballEvents.cs`: Domain events (GameStarted, AtBat, RunScored, etc.)
+- `Events/Handlers/ConsoleEventHandler.cs`: Human-readable game output
 
-### Models
+### SimulationEngine - Generic Framework
 
-- `Core/Models/Player.cs`: Batter with per-PA rates (walk, single, double, triple, HR)
-- `Core/Models/Pitcher.cs`: Pitcher with allowed rates, pitch count, and fatigue tracking
-- `Core/Models/AtBatOutcome.cs`: Outcome enum (Walk, Single, Double, Triple, HomeRun, Out)
-
-### Events
-
-- `Core/Events/EventScheduler.cs`: Central event queue with handler registration
-- `Core/Events/Baseball/BaseballEvents.cs`: Domain events (GameStarted, AtBat, RunScored, etc.)
-- `Core/Events/Handlers/ConsoleEventHandler.cs`: Human-readable game output
+- `Events/EventScheduler.cs`: Central event queue with handler registration
+- `Events/ISimulationEvent.cs`: Base event interface and records
+- `Events/IEventHandler.cs`: Handler interfaces for event processing
+- `Random/IRandomSource.cs`: Abstraction for randomness to enable deterministic tests
+- `Random/SystemRandomSource.cs`: Default random implementation
 
 ## Pitcher Fatigue System
 
@@ -89,25 +108,29 @@ var pitcher = new Pitcher(
 ## Running Tests
 
 ```zsh
+cd src
 dotnet test
 ```
+
+Tests are located in `tests/DiamondX.Tests/` and use NUnit.
 
 ## Deterministic Testing
 
 Tests use `TestRandomSource` to feed known random values into `PlateAppearanceResolver`, enabling scripted sequences without flakiness:
 
-- `DiamondX.Tests/GameStateTests.cs`: Base clearing and scoring updates
-- `DiamondX.Tests/WalkHandlingTests.cs`: Forced advances on walks, bases-loaded scoring
-- `DiamondX.Tests/HalfInningFlowTests.cs`: Deterministic runner movement and outs
-- `DiamondX.Tests/EventSchedulerTests.cs`: Event ordering, handler dispatch, filtering
+- `EventSchedulerTests.cs`: Event ordering, handler dispatch, filtering
+- `GameStateTests.cs`: Base clearing and scoring updates
+- `GameTests.cs`: Full game simulation tests
+- `HalfInningFlowTests.cs`: Deterministic runner movement and outs
+- `WalkHandlingTests.cs`: Forced advances on walks, bases-loaded scoring
 
 ## Deterministic Run Example
 
 ```csharp
 using DiamondX.Core;
 using DiamondX.Core.Models;
-using DiamondX.Core.Random;
 using DiamondX.Core.Simulation;
+using SimulationEngine.Random;
 
 // Fixed sequence of rolls for reproducible results
 var rng = new TestRandomSource(new[] { 0.12, 0.42, 0.97, 0.05, 0.33, 0.88 });
