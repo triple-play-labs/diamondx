@@ -222,7 +222,7 @@ public class SimulationEngineTests
     {
         var parameters = new SimulationParameters();
 
-        var found = parameters.TryGet<int>("missing", out var value);
+        var found = parameters.TryGet<int>("missing", out _);
 
         Assert.That(found, Is.False);
     }
@@ -248,14 +248,14 @@ public class SimulationEngineTests
     }
 
     [Test]
-    public void SimulationParameters_Keys_ReturnsAllKeys()
+    public void SimulationParameters_GetKeys_ReturnsAllKeys()
     {
         var parameters = new SimulationParameters()
             .Set("a", 1)
             .Set("b", 2)
             .Set("c", 3);
 
-        var keys = parameters.Keys.ToList();
+        var keys = parameters.GetKeys().ToList();
 
         Assert.That(keys, Is.EquivalentTo(new[] { "a", "b", "c" }));
     }

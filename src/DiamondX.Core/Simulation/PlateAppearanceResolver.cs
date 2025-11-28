@@ -67,6 +67,15 @@ public sealed class PlateAppearanceResolver : IPlateAppearanceResolver
         if (pitcher is null)
             throw new ArgumentNullException(nameof(pitcher));
 
+        var probabilities = CalculateProbabilities(batter, pitcher);
+        var outcome = DetermineOutcome(probabilities);
+        RecordPitches(outcome, batter, pitcher, probabilities);
+
+        return outcome;
+    }
+
+    private static OutcomeProbabilities CalculateProbabilities(Player batter, Pitcher pitcher)
+    {
         // Get fatigue-adjusted pitcher rates
         double pitcherWalkRate = pitcher.GetFatigueAdjustedRate(pitcher.WalkRate);
         double pitcherSingleRate = pitcher.GetFatigueAdjustedRate(pitcher.SinglesAllowedRate);
@@ -75,76 +84,67 @@ public sealed class PlateAppearanceResolver : IPlateAppearanceResolver
         double pitcherHRRate = pitcher.GetFatigueAdjustedRate(pitcher.HomeRunsAllowedRate);
         double pitcherKRate = pitcher.GetFatigueAdjustedStrikeoutRate();
 
-        // Apply Log5 formula: P = (Pb * Pp) / Pl / ((Pb * Pp / Pl) + ((1-Pb) * (1-Pp) / (1-Pl)))
-        // Where Pb = batter rate, Pp = pitcher rate, Pl = league average rate
-        double walkProb = Log5(batter.WalkRate, pitcherWalkRate, LeagueWalkRate);
-        double singleProb = Log5(batter.SingleRate, pitcherSingleRate, LeagueSingleRate);
-        double doubleProb = Log5(batter.DoubleRate, pitcherDoubleRate, LeagueDoubleRate);
-        double tripleProb = Log5(batter.TripleRate, pitcherTripleRate, LeagueTripleRate);
-        double hrProb = Log5(batter.HomeRunRate, pitcherHRRate, LeagueHomeRunRate);
-
-        double roll = _randomSource.NextDouble();
-        AtBatOutcome outcome;
-
-        if (roll < walkProb)
-        {
-            outcome = AtBatOutcome.Walk;
-            pitcher.RecordPitches(PitchesPerWalk);
-        }
-        else
-        {
-            roll -= walkProb;
-            if (roll < singleProb)
-            {
-                outcome = AtBatOutcome.Single;
-                pitcher.RecordPitches(PitchesPerHit);
-            }
-            else
-            {
-                roll -= singleProb;
-                if (roll < doubleProb)
-                {
-                    outcome = AtBatOutcome.Double;
-                    pitcher.RecordPitches(PitchesPerHit);
-                }
-                else
-                {
-                    roll -= doubleProb;
-                    if (roll < tripleProb)
-                    {
-                        outcome = AtBatOutcome.Triple;
-                        pitcher.RecordPitches(PitchesPerHit);
-                    }
-                    else
-                    {
-                        roll -= tripleProb;
-                        if (roll < hrProb)
-                        {
-                            outcome = AtBatOutcome.HomeRun;
-                            pitcher.RecordPitches(PitchesPerHit);
-                        }
-                        else
-                        {
-                            // Out - check if it's a strikeout (for pitch count purposes)
-                            outcome = AtBatOutcome.Out;
-                            double kProb = Log5(1.0 - batter.WalkRate - batter.SingleRate - batter.DoubleRate - batter.TripleRate - batter.HomeRunRate,
-                                                pitcherKRate, LeagueStrikeoutRate);
-                            if (_randomSource.NextDouble() < kProb)
-                            {
-                                pitcher.RecordPitches(PitchesPerStrikeout);
-                            }
-                            else
-                            {
-                                pitcher.RecordPitches(PitchesPerOut);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return outcome;
+        return new OutcomeProbabilities(
+            Walk: Log5(batter.WalkRate, pitcherWalkRate, LeagueWalkRate),
+            Single: Log5(batter.SingleRate, pitcherSingleRate, LeagueSingleRate),
+            Double: Log5(batter.DoubleRate, pitcherDoubleRate, LeagueDoubleRate),
+            Triple: Log5(batter.TripleRate, pitcherTripleRate, LeagueTripleRate),
+            HomeRun: Log5(batter.HomeRunRate, pitcherHRRate, LeagueHomeRunRate),
+            Strikeout: pitcherKRate
+        );
     }
+
+    private AtBatOutcome DetermineOutcome(OutcomeProbabilities probs)
+    {
+        double roll = _randomSource.NextDouble();
+
+        if (roll < probs.Walk) return AtBatOutcome.Walk;
+        roll -= probs.Walk;
+
+        if (roll < probs.Single) return AtBatOutcome.Single;
+        roll -= probs.Single;
+
+        if (roll < probs.Double) return AtBatOutcome.Double;
+        roll -= probs.Double;
+
+        if (roll < probs.Triple) return AtBatOutcome.Triple;
+        roll -= probs.Triple;
+
+        if (roll < probs.HomeRun) return AtBatOutcome.HomeRun;
+
+        return AtBatOutcome.Out;
+    }
+
+    private void RecordPitches(AtBatOutcome outcome, Player batter, Pitcher pitcher, OutcomeProbabilities probs)
+    {
+        int pitches = outcome switch
+        {
+            AtBatOutcome.Walk => PitchesPerWalk,
+            AtBatOutcome.Single or AtBatOutcome.Double or AtBatOutcome.Triple or AtBatOutcome.HomeRun => PitchesPerHit,
+            AtBatOutcome.Out => DetermineOutPitches(batter, probs),
+            _ => PitchesPerOut
+        };
+
+        pitcher.RecordPitches(pitches);
+    }
+
+    private int DetermineOutPitches(Player batter, OutcomeProbabilities probs)
+    {
+        // Calculate strikeout probability for outs
+        double batterOutRate = 1.0 - batter.WalkRate - batter.SingleRate - batter.DoubleRate - batter.TripleRate - batter.HomeRunRate;
+        double kProb = Log5(batterOutRate, probs.Strikeout, LeagueStrikeoutRate);
+
+        return _randomSource.NextDouble() < kProb ? PitchesPerStrikeout : PitchesPerOut;
+    }
+
+    private readonly record struct OutcomeProbabilities(
+        double Walk,
+        double Single,
+        double Double,
+        double Triple,
+        double HomeRun,
+        double Strikeout
+    );
 
     /// <summary>
     /// Log5 formula for combining batter and pitcher probabilities.

@@ -95,14 +95,11 @@ public sealed class SimulationParameters : ISimulationParameters
         }
     }
 
-    public IEnumerable<string> Keys
+    public IEnumerable<string> GetKeys()
     {
-        get
+        lock (_lock)
         {
-            lock (_lock)
-            {
-                return _parameters.Keys.ToList();
-            }
+            return _parameters.Keys.ToList();
         }
     }
 

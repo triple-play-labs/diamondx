@@ -1,6 +1,37 @@
 namespace DiamondX.Core.Models;
 
 /// <summary>
+/// Statistical rates for a pitcher, used for Log5 calculations.
+/// </summary>
+/// <param name="WalkRate">Rate at which pitcher allows walks (BB/PA).</param>
+/// <param name="SinglesAllowedRate">Rate at which pitcher allows singles.</param>
+/// <param name="DoublesAllowedRate">Rate at which pitcher allows doubles.</param>
+/// <param name="TriplesAllowedRate">Rate at which pitcher allows triples.</param>
+/// <param name="HomeRunsAllowedRate">Rate at which pitcher allows home runs (HR/PA).</param>
+/// <param name="StrikeoutRate">Rate at which pitcher records strikeouts (K/PA).</param>
+public readonly record struct PitcherStats(
+    double WalkRate,
+    double SinglesAllowedRate,
+    double DoublesAllowedRate,
+    double TriplesAllowedRate,
+    double HomeRunsAllowedRate,
+    double StrikeoutRate
+)
+{
+    /// <summary>
+    /// Creates league average pitcher stats.
+    /// </summary>
+    public static PitcherStats LeagueAverage => new(
+        WalkRate: 0.08,
+        SinglesAllowedRate: 0.15,
+        DoublesAllowedRate: 0.045,
+        TriplesAllowedRate: 0.005,
+        HomeRunsAllowedRate: 0.03,
+        StrikeoutRate: 0.22
+    );
+}
+
+/// <summary>
 /// Represents a pitcher with per-plate-appearance rates.
 /// These rates are used in combination with batter rates via the Log5 method.
 /// </summary>
@@ -57,6 +88,30 @@ public class Pitcher
     /// </summary>
     public bool IsExhausted => PitchCount >= MaxPitchCount;
 
+    /// <summary>
+    /// Creates a pitcher with specified stats and fatigue settings.
+    /// </summary>
+    public Pitcher(
+        string name,
+        PitcherStats stats,
+        int fatigueThreshold = 75,
+        int maxPitchCount = 110)
+    {
+        Name = name;
+        WalkRate = stats.WalkRate;
+        SinglesAllowedRate = stats.SinglesAllowedRate;
+        DoublesAllowedRate = stats.DoublesAllowedRate;
+        TriplesAllowedRate = stats.TriplesAllowedRate;
+        HomeRunsAllowedRate = stats.HomeRunsAllowedRate;
+        StrikeoutRate = stats.StrikeoutRate;
+        FatigueThreshold = fatigueThreshold;
+        MaxPitchCount = maxPitchCount;
+        PitchCount = 0;
+    }
+
+    /// <summary>
+    /// Creates a pitcher with individual stat parameters (legacy compatibility).
+    /// </summary>
     public Pitcher(
         string name,
         double walkRate,
@@ -67,17 +122,12 @@ public class Pitcher
         double strikeoutRate,
         int fatigueThreshold = 75,
         int maxPitchCount = 110)
+        : this(
+            name,
+            new PitcherStats(walkRate, singlesAllowedRate, doublesAllowedRate, triplesAllowedRate, homeRunsAllowedRate, strikeoutRate),
+            fatigueThreshold,
+            maxPitchCount)
     {
-        Name = name;
-        WalkRate = walkRate;
-        SinglesAllowedRate = singlesAllowedRate;
-        DoublesAllowedRate = doublesAllowedRate;
-        TriplesAllowedRate = triplesAllowedRate;
-        HomeRunsAllowedRate = homeRunsAllowedRate;
-        StrikeoutRate = strikeoutRate;
-        FatigueThreshold = fatigueThreshold;
-        MaxPitchCount = maxPitchCount;
-        PitchCount = 0;
     }
 
     /// <summary>

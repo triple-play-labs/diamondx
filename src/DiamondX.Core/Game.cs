@@ -19,8 +19,8 @@ public class Game
     private readonly GameState _state = new();
     private readonly IPlateAppearanceResolver _plateAppearanceResolver;
 
-    private Pitcher _homePitcher;
-    private Pitcher _awayPitcher;
+    private readonly Pitcher _homePitcher;
+    private readonly Pitcher _awayPitcher;
 
     private int _homeBatterIndex;
     private int _awayBatterIndex;

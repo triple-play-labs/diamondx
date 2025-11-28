@@ -92,5 +92,5 @@ public interface ISimulationParameters
     /// <summary>
     /// Get all parameter keys.
     /// </summary>
-    IEnumerable<string> Keys { get; }
+    IEnumerable<string> GetKeys();
 }

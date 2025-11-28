@@ -54,8 +54,11 @@ diamondx/
 │   │   ├── Simulation/
 │   │   └── State/
 │   └── SimulationEngine/       # Generic simulation framework
-│       ├── Events/
-│       └── Random/
+│       ├── Core/               # ISimulation, SimulationRunner, metrics
+│       ├── Events/             # Event scheduling and handlers
+│       ├── Random/             # Reproducible RNG (seedable)
+│       ├── State/              # Snapshot persistence
+│       └── Time/               # Simulation clock (discrete/fixed-step)
 └── tests/
     └── DiamondX.Tests/         # NUnit tests
 ```
@@ -75,11 +78,29 @@ diamondx/
 
 ### SimulationEngine - Generic Framework
 
+A domain-agnostic simulation engine that can run any simulation model. See [SimulationEngine README](src/SimulationEngine/README.md) for full documentation.
+
+**Core Components:**
+
+- `Core/ISimulation.cs`: Contract for runnable simulation models
+- `Core/SimulationRunner.cs`: Executes simulations with parallel run support
+- `Core/SimulationContext.cs`: Runtime services (RNG, clock, events, state)
+- `Core/SimulationMetrics.cs`: Engine-level performance tracking
+
+**Time Management:**
+
+- `Time/ISimulationClock.cs`: Supports discrete-event, fixed-step, and real-time modes
+- `Time/SimulationClock.cs`: Thread-safe clock with snapshot/restore
+
+**State & Persistence:**
+
+- `State/IStateManager.cs`: Snapshot persistence interface
+- `State/InMemoryStateManager.cs`: JSON-based state snapshots for replay
+
+**Events & Randomness:**
+
 - `Events/EventScheduler.cs`: Central event queue with handler registration
-- `Events/ISimulationEvent.cs`: Base event interface and records
-- `Events/IEventHandler.cs`: Handler interfaces for event processing
-- `Random/IRandomSource.cs`: Abstraction for randomness to enable deterministic tests
-- `Random/SystemRandomSource.cs`: Default random implementation
+- `Random/SeedableRandomSource.cs`: Reproducible RNG for deterministic runs
 
 ## Pitcher Fatigue System
 

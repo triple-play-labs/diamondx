@@ -124,80 +124,67 @@ public sealed class SimulationRunner
 
         while (!simulation.IsComplete && !context.IsStopRequested)
         {
-            // Check for pause
+            // Check for pause request
             if (context.IsPauseRequested)
             {
-                metrics.Stop(SimulationStatus.Paused, context.Clock.CurrentTime);
-                return new SimulationResult(
-                    context.RunId,
-                    SimulationStatus.Paused,
-                    metrics,
-                    context.Random is SeedableRandomSource s ? s.Seed : 0
-                );
+                return CreateResult(context, metrics, SimulationStatus.Paused);
             }
 
             // Check step limit
             if (maxSteps.HasValue && stepCount >= maxSteps.Value)
             {
-                metrics.Stop(SimulationStatus.Stopped, context.Clock.CurrentTime);
-                return new SimulationResult(
-                    context.RunId,
-                    SimulationStatus.Stopped,
-                    metrics,
-                    context.Random is SeedableRandomSource s ? s.Seed : 0
-                );
+                return CreateResult(context, metrics, SimulationStatus.Stopped);
             }
 
-            // Execute step
+            // Execute step and handle result
             var stepResult = simulation.Step();
             metrics.RecordStep();
             stepCount++;
 
-            switch (stepResult)
+            var result = HandleStepResult(stepResult, context, metrics);
+            if (result is not null)
             {
-                case SimulationStepResult.Continue:
-                    continue;
-
-                case SimulationStepResult.Completed:
-                    metrics.Stop(SimulationStatus.Completed, context.Clock.CurrentTime);
-                    return new SimulationResult(
-                        context.RunId,
-                        SimulationStatus.Completed,
-                        metrics,
-                        context.Random is SeedableRandomSource seed ? seed.Seed : 0
-                    );
-
-                case SimulationStepResult.Paused:
-                    metrics.Stop(SimulationStatus.Paused, context.Clock.CurrentTime);
-                    return new SimulationResult(
-                        context.RunId,
-                        SimulationStatus.Paused,
-                        metrics,
-                        context.Random is SeedableRandomSource s2 ? s2.Seed : 0
-                    );
-
-                case SimulationStepResult.Error:
-                    metrics.RecordError();
-                    metrics.Stop(SimulationStatus.Error, context.Clock.CurrentTime);
-                    return new SimulationResult(
-                        context.RunId,
-                        SimulationStatus.Error,
-                        metrics,
-                        context.Random is SeedableRandomSource s3 ? s3.Seed : 0
-                    );
+                return result;
             }
         }
 
         // Normal completion
         var finalStatus = context.IsStopRequested ? SimulationStatus.Stopped : SimulationStatus.Completed;
-        metrics.Stop(finalStatus, context.Clock.CurrentTime);
+        return CreateResult(context, metrics, finalStatus);
+    }
 
+    private static SimulationResult? HandleStepResult(SimulationStepResult stepResult, SimulationContext context, SimulationMetrics metrics)
+    {
+        return stepResult switch
+        {
+            SimulationStepResult.Continue => null,
+            SimulationStepResult.Completed => CreateResult(context, metrics, SimulationStatus.Completed),
+            SimulationStepResult.Paused => CreateResult(context, metrics, SimulationStatus.Paused),
+            SimulationStepResult.Error => CreateErrorResult(context, metrics),
+            _ => null
+        };
+    }
+
+    private static SimulationResult CreateResult(SimulationContext context, SimulationMetrics metrics, SimulationStatus status)
+    {
+        metrics.Stop(status, context.Clock.CurrentTime);
         return new SimulationResult(
             context.RunId,
-            finalStatus,
+            status,
             metrics,
-            context.Random is SeedableRandomSource finalSeed ? finalSeed.Seed : 0
+            GetSeed(context)
         );
+    }
+
+    private static SimulationResult CreateErrorResult(SimulationContext context, SimulationMetrics metrics)
+    {
+        metrics.RecordError();
+        return CreateResult(context, metrics, SimulationStatus.Error);
+    }
+
+    private static int GetSeed(SimulationContext context)
+    {
+        return context.Random is SeedableRandomSource seedable ? seedable.Seed : 0;
     }
 
     private static int[] GenerateSeeds(int count, int? baseSeed)
