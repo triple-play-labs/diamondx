@@ -1,0 +1,100 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - "v*.*.*"
+
+env:
+    DOTNET_VERSION: "8.0.x"
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+    DOTNET_NOLOGO: true
+
+jobs:
+    build:
+        name: Build Release
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Get version from tag
+              id: version
+              run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: ${{ env.DOTNET_VERSION }}
+
+            - name: Restore dependencies
+              run: dotnet restore src/diamondx.sln
+
+            - name: Build
+              run: dotnet build src/diamondx.sln --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+
+            - name: Test
+              run: dotnet test src/diamondx.sln --configuration Release --no-build --verbosity normal
+
+            - name: Publish Console App (linux-x64)
+              run: |
+                  dotnet publish src/DiamondX.Console/DiamondX.Console.csproj \
+                    --configuration Release \
+                    --runtime linux-x64 \
+                    --self-contained true \
+                    -p:PublishSingleFile=true \
+                    -p:Version=${{ steps.version.outputs.version }} \
+                    --output ./publish/linux-x64
+
+            - name: Publish Console App (osx-x64)
+              run: |
+                  dotnet publish src/DiamondX.Console/DiamondX.Console.csproj \
+                    --configuration Release \
+                    --runtime osx-x64 \
+                    --self-contained true \
+                    -p:PublishSingleFile=true \
+                    -p:Version=${{ steps.version.outputs.version }} \
+                    --output ./publish/osx-x64
+
+            - name: Publish Console App (osx-arm64)
+              run: |
+                  dotnet publish src/DiamondX.Console/DiamondX.Console.csproj \
+                    --configuration Release \
+                    --runtime osx-arm64 \
+                    --self-contained true \
+                    -p:PublishSingleFile=true \
+                    -p:Version=${{ steps.version.outputs.version }} \
+                    --output ./publish/osx-arm64
+
+            - name: Publish Console App (win-x64)
+              run: |
+                  dotnet publish src/DiamondX.Console/DiamondX.Console.csproj \
+                    --configuration Release \
+                    --runtime win-x64 \
+                    --self-contained true \
+                    -p:PublishSingleFile=true \
+                    -p:Version=${{ steps.version.outputs.version }} \
+                    --output ./publish/win-x64
+
+            - name: Create release archives
+              run: |
+                  cd publish
+                  tar -czvf diamondx-${{ steps.version.outputs.version }}-linux-x64.tar.gz -C linux-x64 .
+                  tar -czvf diamondx-${{ steps.version.outputs.version }}-osx-x64.tar.gz -C osx-x64 .
+                  tar -czvf diamondx-${{ steps.version.outputs.version }}-osx-arm64.tar.gz -C osx-arm64 .
+                  zip -j diamondx-${{ steps.version.outputs.version }}-win-x64.zip win-x64/*
+
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v1
+              with:
+                  generate_release_notes: true
+                  files: |
+                      publish/diamondx-${{ steps.version.outputs.version }}-linux-x64.tar.gz
+                      publish/diamondx-${{ steps.version.outputs.version }}-osx-x64.tar.gz
+                      publish/diamondx-${{ steps.version.outputs.version }}-osx-arm64.tar.gz
+                      publish/diamondx-${{ steps.version.outputs.version }}-win-x64.zip
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

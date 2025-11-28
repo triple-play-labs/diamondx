@@ -52,3 +52,28 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Code coverage
+coverage.*.xml
+coverage.*.json
+*.coverage
+*.coveragexml
+CoverageReport/
+
+# macOS
+.DS_Store
+
+# IDE - VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IDE - JetBrains Rider
+.idea/
+
+# IDE - Visual Studio
+.vs/
+*.suo
+*.user

@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+
+# Documentation
+*.md
+docs/
+DevOps_Roadmap.md
+LICENSE
+
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+
+# IDE and editors
+.vscode/
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.swp
+*~
+
+# Testing
+**/TestResults/
+**/*.trx
+coverage.*.json
+coverage.*.xml
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Docker
+docker-compose*.yml
+**/Dockerfile*
+**/.dockerignore
+
+# Scripts
+scripts/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temp files
+*.tmp
+*.temp
+**/tmp/
