@@ -1,0 +1,23 @@
+# CODEOWNERS for DiamondX
+
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+
+- @JimCorrell @brooksc52
+
+# Core simulation engine
+
+/src/SimulationEngine/ @JimCorrell @brooksc52
+/src/DiamondX.Core/ @JimCorrell @brooksc52
+
+# DevOps and CI/CD
+
+/.github/ @JimCorrell @brooksc52
+/docker/ @JimCorrell @brooksc52
+/scripts/ @JimCorrell @brooksc52
+
+# Documentation
+
+/docs/ @JimCorrell @brooksc52
+\*.md @JimCorrell @brooksc52
