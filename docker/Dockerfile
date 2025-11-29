@@ -10,9 +10,10 @@ COPY src/DiamondX.Console/*.csproj ./DiamondX.Console/
 COPY src/DiamondX.Core/*.csproj ./DiamondX.Core/
 COPY src/DiamondX.Weather/*.csproj ./DiamondX.Weather/
 COPY src/SimulationEngine/*.csproj ./SimulationEngine/
+COPY tests/DiamondX.Tests/*.csproj ./tests/DiamondX.Tests/
 
-# Restore dependencies
-RUN dotnet restore
+# Restore dependencies (only main projects, skip tests at runtime)
+RUN dotnet restore DiamondX.Console/DiamondX.Console.csproj
 
 # Copy source code
 COPY src/. .
