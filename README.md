@@ -39,6 +39,9 @@ docker run --rm ghcr.io/triple-play-labs/diamondx
 # Run Monte Carlo simulations
 docker run --rm ghcr.io/triple-play-labs/diamondx -mc
 
+# Run with custom simulation count
+docker run --rm ghcr.io/triple-play-labs/diamondx -mc -n=50000
+
 # Run orchestrated Weather + Baseball demo
 docker run --rm ghcr.io/triple-play-labs/diamondx -o
 
