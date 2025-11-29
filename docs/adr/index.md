@@ -14,7 +14,7 @@ An Architecture Decision Record captures an important architectural decision mad
 ## ADR Template
 
 ```markdown
-# ADR-NNN: Title
+# ADR-001: Title
 
 ## Status
 Proposed | Accepted | Deprecated | Superseded
