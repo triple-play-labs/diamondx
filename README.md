@@ -14,6 +14,7 @@ DiamondX is a text-based baseball simulation engine built with .NET 8. It models
 ## Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [Docker](https://docs.docker.com/get-docker/) (optional, for containerized runs)
 
 ## Quick Start
 
@@ -22,6 +23,38 @@ git clone https://github.com/triple-play-labs/diamondx.git
 cd diamondx/src
 dotnet build
 dotnet run --project DiamondX.Console
+```
+
+## Docker
+
+Pull and run the latest image from GitHub Container Registry:
+
+```zsh
+# Pull the image
+docker pull ghcr.io/triple-play-labs/diamondx:latest
+
+# Run a single game
+docker run --rm ghcr.io/triple-play-labs/diamondx
+
+# Run Monte Carlo simulations
+docker run --rm ghcr.io/triple-play-labs/diamondx -mc
+
+# Run with custom simulation count
+docker run --rm ghcr.io/triple-play-labs/diamondx -mc -n=50000
+
+# Run orchestrated Weather + Baseball demo
+docker run --rm ghcr.io/triple-play-labs/diamondx -o
+
+# Run a specific version
+docker pull ghcr.io/triple-play-labs/diamondx:1.0.0
+docker run --rm ghcr.io/triple-play-labs/diamondx:1.0.0
+```
+
+Or build locally:
+
+```zsh
+docker build -f docker/Dockerfile -t diamondx .
+docker run --rm diamondx
 ```
 
 ## Monte Carlo Win Probability
