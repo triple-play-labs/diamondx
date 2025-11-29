@@ -1,0 +1,11 @@
+# Markdownlint configuration for docs folder
+# These rules are relaxed for Jekyll-based documentation
+
+# Allow multiple H1s (Jekyll front matter title + content title)
+MD025: false
+
+# Allow lists without surrounding blank lines (common in docs)
+MD032: false
+
+# Allow fenced code blocks without language (for pseudo-code/output)
+MD040: false
