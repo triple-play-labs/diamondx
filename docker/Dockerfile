@@ -25,7 +25,7 @@ RUN dotnet publish DiamondX.Console/DiamondX.Console.csproj \
     --no-restore
 
 # Runtime image
-FROM mcr.microsoft.com/dotnet/runtime:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 WORKDIR /app
 
 COPY --from=build /app .
